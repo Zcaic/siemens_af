@@ -280,11 +280,12 @@ if __name__ == "__main__":
     afs = []
     afs_name = []
 
-    for i in range(6):
+    for i in range(1):
         af = asb.KulfanAirfoil("n63415").to_airfoil(n_coordinates_per_side=100)
+        af=af.scale(3.65,3.65).set_TE_thickness(2.4e-3)
         af_name = f"af_{i}"
         afs.append(af)
         afs_name.append(af_name)
 
-    ccm_createaf(afs=afs, afs_name=afs_name, TE=True)
+    # ccm_createaf(afs=afs, afs_name=afs_name, TE=True)
     ccm_modifyaf(afs=afs, afs_name=afs_name)
