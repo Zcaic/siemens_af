@@ -24,18 +24,23 @@ public class ccm_modifyaf extends StarMacro {
     for (int i=0;i<coords.size();i++)
     {
         Sketch3D sketch3D_0 = ((Sketch3D) cadModel_0.getFeature(afs_name[i]));
-        // sketch3D_0.setAutoPreview(true);
+        sketch3D_0.setAutoPreview(true);
         cadModel_0.allowMakingPartDirty(false);
         // cadModel_0.getFeatureManager().updateModelForEditingFeature(sketch3D_0);
         cadModel_0.getFeatureManager().startSketch3DEdit(sketch3D_0);
         double[][] af_coord=coords.get(i);
         for(int j=0;j<af_coord.length;j++){
             PointSketchPrimitive3D pt = ((PointSketchPrimitive3D) sketch3D_0.getSketchPrimitive3D(String.format("Point %d",j+1)));
-            sketch3D_0.editPointLocal(pt, new DoubleVector(af_coord[j]));
+            // sketch3D_0.editPointLocal(pt, new DoubleVector(af_coord[j]));
+            CoordinateInput coord=pt.getPointInput();
+            coord.setVector0(af_coord[j][0]);
+            coord.setVector1(af_coord[j][1]);
+            coord.setVector2(af_coord[j][2]);
+            pt.setPointInput(coord);
         }
         sketch3D_0.setApplyToAllInstances(false);
-        // sketch3D_0.setExcludedInstancedBodies(new ArrayList<>(Collections.<Body>emptyList()));
-        // sketch3D_0.setIsBodyGroupCreation(false);
+        sketch3D_0.setExcludedInstancedBodies(new ArrayList<>(Collections.<Body>emptyList()));
+        sketch3D_0.setIsBodyGroupCreation(false);
         // sketch3D_0.setAutoPreview(true);
         cadModel_0.getFeatureManager().markDependentNotUptodate(sketch3D_0);
         cadModel_0.allowMakingPartDirty(true);
@@ -46,19 +51,24 @@ public class ccm_modifyaf extends StarMacro {
         // cadModel_0.getFeatureManager().updateModelAfterFeatureEdited(sketch3D_0, null);
 
         Sketch3D sketch3D_1 = ((Sketch3D) cadModel_0.getFeature(String.format("%s_guide",afs_name[i])));
-        // sketch3D_1.setAutoPreview(true);
+        sketch3D_1.setAutoPreview(true);
         cadModel_0.allowMakingPartDirty(false);
         // cadModel_0.getFeatureManager().updateModelForEditingFeature(sketch3D_1);
         cadModel_0.getFeatureManager().startSketch3DEdit(sketch3D_1);
         double[][] guide_pts=guides.get(i);
         for (int j=0;j<guide_pts.length;j++){
             PointSketchPrimitive3D pt = ((PointSketchPrimitive3D) sketch3D_1.getSketchPrimitive3D(String.format("Point %d",j+1)));
-            sketch3D_1.editPointLocal(pt, new DoubleVector(guide_pts[j]));
+            // sketch3D_1.editPointLocal(pt, new DoubleVector(guide_pts[j]));
+            CoordinateInput coord=pt.getPointInput();
+            coord.setVector0(guide_pts[j][0]);
+            coord.setVector1(guide_pts[j][1]);
+            coord.setVector2(guide_pts[j][2]);
+            pt.setPointInput(coord);
         }
         sketch3D_1.setApplyToAllInstances(false);
-        // sketch3D_1.setExcludedInstancedBodies(new ArrayList<>(Collections.<Body>emptyList()));
-        // sketch3D_1.setIsBodyGroupCreation(false);
-        // sketch3D_1.setAutoPreview(true);
+        sketch3D_1.setExcludedInstancedBodies(new ArrayList<>(Collections.<Body>emptyList()));
+        sketch3D_1.setIsBodyGroupCreation(false);
+        sketch3D_1.setAutoPreview(true);
         cadModel_0.getFeatureManager().markDependentNotUptodate(sketch3D_1);
         cadModel_0.allowMakingPartDirty(true);
         sketch3D_1.markFeatureForEdit();
@@ -67,6 +77,8 @@ public class ccm_modifyaf extends StarMacro {
         cadModel_0.getFeatureManager().markDependentNotUptodate(sketch3D_1);
         // cadModel_0.getFeatureManager().updateModelAfterFeatureEdited(sketch3D_1, null);
     }
+    cadModel_0.getFeatureManager().rollForwardToEnd(false);
     cadModel_0.update();
+    simulation_0.get(SolidModelManager.class).endEditCadModel(cadModel_0);
   }
 }
