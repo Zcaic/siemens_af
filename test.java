@@ -1,16 +1,19 @@
 // Simcenter STAR-CCM+ macro: test.java
-// Written by Simcenter STAR-CCM+ 20.02.007
+// Written by Simcenter STAR-CCM+ 21.04.008
 package macro;
 
 import java.util.*;
 
 import star.common.*;
-import star.cadmodeler.*;
+import star.base.neo.*;
 
 public class test extends StarMacro {
 
+  @Override
   public void execute() {
     execute0();
+    // D:/Doc/siemens_af/star_Copy.sim
+    execute1();
   }
 
   private void execute0() {
@@ -18,9 +21,9 @@ public class test extends StarMacro {
     Simulation simulation_0 = 
       getActiveSimulation();
 
-    CadModel cadModel_0 = 
-      ((CadModel) simulation_0.get(SolidModelManager.class).getObject("3D-CAD Model 1"));
+    simulation_0.saveState("D:\\Doc\\siemens_af\\star_Copy.sim", false);
+  }
 
-    cadModel_0.update();
+  private void execute1() {
   }
 }

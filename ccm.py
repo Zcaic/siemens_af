@@ -1,7 +1,7 @@
 import aerosandbox.numpy as anp
 import aerosandbox as asb
 from pathlib import Path
-
+import subprocess
 
 def ccm_createaf(afs: list[asb.Airfoil], afs_name: list[str], TE=False, guide_width=1.0, axis="z"):
     template = """
@@ -288,17 +288,160 @@ public class ccm_modifyaf extends StarMacro {
     runtime.mkdir(exist_ok=True)
     ccm_createaf = runtime / "ccm_modifyaf.java"
     ccm_createaf.write_text(template)
+    return ccm_createaf
+
+
+def ccm_cfd(mach,alpha,pressure,temperature,density,outfile,clearsol=False,header=False,save=False,simname=None):
+    template='''
+package macro;
+
+import java.util.*;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.io.IOException;
+
+import star.common.*;
+import star.base.neo.*;
+import star.base.report.*;
+import star.flow.*;
+import star.meshing.*;
+
+public class %(script_fname)s extends StarMacro {
+
+  @Override
+  public void execute() {
+    execute0();
+  }
+
+  private void execute0() {
+
+    double aoa = %(aoa).6f;
+    double mach = %(mach).6f;
+    double pre0 = %(pre0).6f;
+    double tem = %(tem).6f;
+    double rho = %(rho).6f;
+    String outfile = "%(outfile)s";
+    boolean clearsol = %(clearsol)s;
+    boolean outheader = %(outheader)s;
+    boolean save = %(save)s;
+    String simname = "%(simname)s"; 
+
+    Simulation simulation_0 = getActiveSimulation();
+
+    Units units_0 = ((Units) simulation_0.getUnitsManager().getObject("deg"));
+    Units units_1 = ((Units) simulation_0.getUnitsManager().getObject(""));
+    Units units_2 = ((Units) simulation_0.getUnitsManager().getObject("Pa"));
+    Units units_3 = ((Units) simulation_0.getUnitsManager().getObject("K"));
+    Units units_4 = ((Units) simulation_0.getUnitsManager().getObject("kg/m^3"));
+
+    ScalarGlobalParameter P_aoa = ((ScalarGlobalParameter) simulation_0.get(GlobalParameterManager.class).getObject("AoA"));
+    ScalarGlobalParameter P_ma = ((ScalarGlobalParameter) simulation_0.get(GlobalParameterManager.class).getObject("ma"));
+    ScalarGlobalParameter P_pre0 = ((ScalarGlobalParameter) simulation_0.get(GlobalParameterManager.class).getObject("pre0"));
+    ScalarGlobalParameter P_tem = ((ScalarGlobalParameter) simulation_0.get(GlobalParameterManager.class).getObject("tem"));
+    ScalarGlobalParameter P_rho = ((ScalarGlobalParameter) simulation_0.get(GlobalParameterManager.class).getObject("rho"));
+
+    P_aoa.getQuantity().setValueAndUnits(aoa, units_0);
+    P_ma.getQuantity().setValueAndUnits(mach, units_1);
+    P_pre0.getQuantity().setValueAndUnits(pre0, units_2);
+    P_tem.getQuantity().setValueAndUnits(tem, units_3);
+    P_rho.getQuantity().setValueAndUnits(rho, units_4);
+
+    MeshPipelineController meshPipelineController_0 = simulation_0.get(MeshPipelineController.class);
+    meshPipelineController_0.generateVolumeMesh();
+
+    Solution solution_0 = simulation_0.getSolution();
+    if(clearsol){
+      solution_0.clearSolution(Solution.Clear.History, Solution.Clear.Fields, Solution.Clear.LagrangianDem);
+    }
+    
+
+    simulation_0.getSimulationIterator().run();
+
+    ForceReport report_lift = ((ForceReport) simulation_0.getReportManager().getReport("Lift"));
+    double lift = report_lift.monitoredValue();
+
+    ForceReport report_drag = ((ForceReport) simulation_0.getReportManager().getReport("Drag"));
+    double drag = report_drag.monitoredValue();
+
+    ExpressionReport report_ck = ((ExpressionReport) simulation_0.getReportManager().getReport("CK"));
+    double ck = report_ck.monitoredValue();
+
+    ForceCoefficientReport report_cl = ((ForceCoefficientReport) simulation_0.getReportManager().getReport("CL"));
+    double cl = report_cl.monitoredValue();
+
+    ForceCoefficientReport report_cd = ((ForceCoefficientReport) simulation_0.getReportManager().getReport("CD"));
+    double cd = report_cd.monitoredValue();
+
+    PrintWriter pw = null;
+    try{
+      FileWriter fw = new FileWriter(outfile,true);
+      pw = new PrintWriter(fw);
+    }catch(IOException e){
+      e.printStackTrace();
+    }
+
+    String header = "pre,tem,rho,mach,alpha,Lift,Drag,CL,CD,CK";
+    if (outheader){
+      pw.println(header);
+    }
+
+    String data = String.format("%%.3f,%%.3f,%%.3f,%%.3f,%%.3f,%%.6f,%%.6f,%%.6f,%%.6f,%%.6f",pre0,tem,rho,mach,aoa,lift,drag,cl,cd,ck);
+    pw.println(data);
+
+    pw.close();
+
+    if (save){
+        simulation_0.saveState(simname, false);
+    }
+  }
+}
+'''
+
+    cfd_script=Path("./runtime/ccm_cfd.java")
+    cfd_script.parent.mkdir(exist_ok=True)
+    script=template%{
+        "script_fname":cfd_script.stem,
+        "aoa":alpha,
+        "mach":mach,
+        "pre0":pressure,
+        "tem":temperature,
+        "rho":density,
+        "outfile":Path(outfile).resolve().as_posix(),
+        "clearsol":"true" if clearsol else "false",
+        "outheader":"true" if header else "false",
+        "save":"true" if save else "false",
+        "simname":Path(simname).resolve().as_posix() if isinstance(simname,str) else " "
+    }
+    cfd_script.write_text(script)
+    return cfd_script
+
+def callstar(host,port,script:list[str],exe="starccm+",timeout=600):
+    cmd=[exe,"-host",host+":"+port,"-batch",",".join(script),"-noexit"]
+    try:
+        p=subprocess.run(cmd,timeout=timeout,stdout=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        print(f"=== \033[1;31m The maxumum runtime was exceeded!\033[0m ===")
+    return p
 
 if __name__ == "__main__":
     afs = []
     afs_name = []
 
-    for i in range(1):
-        af = asb.KulfanAirfoil("n63415").to_airfoil(n_coordinates_per_side=100)
-        af=af.scale(3.65,3.65).set_TE_thickness(2.4e-3)
-        af_name = f"af_{i}"
-        afs.append(af)
-        afs_name.append(af_name)
+    alpha=anp.arange(-2.0,8.0,2.0)
 
-    # ccm_createaf(afs=afs, afs_name=afs_name, TE=True)
-    ccm_modifyaf(afs=afs, afs_name=afs_name)
+    af = asb.KulfanAirfoil("n63415").set_TE_thickness(2.4e-3).to_airfoil(n_coordinates_per_side=100)
+    # af=asb.Airfoil("naca0012").set_TE_thickness(2.4e-3).to_kulfan_airfoil().to_airfoil(n_coordinates_per_side=100)
+
+    af_name = f"af_0"
+    afs.append(af)
+    afs_name.append(af_name)
+    
+    for idx,i in enumerate(alpha):
+        # ccm_createaf(afs=afs, afs_name=afs_name, TE=True)
+        modify_script=ccm_modifyaf(afs=afs, afs_name=afs_name)
+        cfd_script =ccm_cfd(mach=0.6,alpha=i,pressure=455217,temperature=220,density=0.66,outfile="./runtime/out.csv",clearsol=True,header=True if idx==0 else False,save=True,simname=f"./runtime/aoa_{i:.3f}.sim")
+
+        callstar(host="DESKTOP-VRDCTE5",port="47827",script=[modify_script.resolve().as_posix(),cfd_script.resolve().as_posix()],timeout=6000)
+
+
+
